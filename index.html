@@ -50,27 +50,27 @@ Il grafico mostra i valori calcolati a ogni round.
 <script>
 let chart;
 
-// Genera un polinomio multivariato come un array di valori
+// Generates a multivariate polynomial as an array of values
 function generateFunction(n){
     let size = Math.pow(2,n);
     let g = [];
     for(let i=0;i<size;i++) {
-        // Genera coefficienti casuali
+        // Generates random coefficients
         g.push(Math.floor(Math.random()*5)); 
     }
     return g;
 }
 
-// Funzione per valutare il polinomio in un punto specifico
+// Function to evaluate the polynomial at a specific point
 function evaluate(g, x) {
     let sum = 0;
-    // Iteriamo su tutte le 2^n combinazioni possibili
+    // Iterate over all 2^n possible combinations
     for(let i=0; i<Math.pow(2, g.length); i++) {
-        // Convertiamo l'indice in una stringa binaria per ottenere le variabili
+        // Convert the index to a binary string to get the variables
         let binary = i.toString(2).padStart(g.length, '0');
         let term = g[i];
         for(let j=0; j<g.length; j++) {
-            // Sostituiamo ogni variabile con il valore corrispondente in x
+            // Replace each variable with the corresponding value in x
             if (binary[j] === '1') {
                 term *= x[j];
             } else {
@@ -82,7 +82,7 @@ function evaluate(g, x) {
     return sum;
 }
 
-// Funzione principale che esegue il protocollo
+// Main function that runs the protocol
 function startProtocol(){
     const log = document.getElementById("log");
     log.innerHTML = '';
@@ -93,15 +93,14 @@ function startProtocol(){
         return;
     }
     
-    // Genera il polinomio 'g' con n variabili
+    // Generate polynomial 'g' with n variables
     let g = generateFunction(n);
     
     // Calcola la somma corretta
-    let x = new Array(n).fill(0);
     let correctSum = 0;
     for(let i=0; i<Math.pow(2, n); i++) {
-        let current_x = i.toString(2).padStart(n, '0').split('').map(Number);
-        correctSum += evaluate(g, current_x);
+        // The correct sum is the sum of the coefficients, not the sum of the evaluations of the polynomial
+        correctSum += g[i];
     }
 
     let claimed = parseInt(document.getElementById("claimedSum").value);
@@ -114,8 +113,8 @@ function startProtocol(){
     let current_g = g;
     
     for(let i = 0; i < n; i++) {
-        // Prover calcola P_i(x_i)
-        // P_i(0) è la somma del polinomio quando la variabile x_i è fissata a 0
+        // Prover calculates P_i(x_i)
+        // P_i(0) is the sum of the polynomial when variable x_i is fixed to 0
         let p0 = 0;
         let p1 = 0;
         for(let j = 0; j < Math.pow(2, n - i - 1); j++) {
@@ -123,21 +122,21 @@ function startProtocol(){
             p1 += current_g[j + Math.pow(2, n - i - 1)];
         }
         
-        // Verificatore controlla se P_i(0) + P_i(1) è uguale a P_{i-1}(r_{i-1})
-        // Nel primo round, il Verificatore controlla se P_0(0)+P_0(1) è uguale alla somma dichiarata
+        // Verifier checks if P_i(0) + P_i(1) is equal to P_{i-1}(r_{i-1})
+        // In the first round, the Verifier checks if P_0(0)+P_0(1) is equal to the claimed sum
         let correct = Math.abs((p0 + p1) - prevVal) < 0.01;
         
-        let r = Math.random(); // Verificatore sceglie un valore casuale
+        let r = Math.random(); // Verifier chooses a random value
         
-        // Prover calcola il valore del polinomio a quel punto casuale: P_i(r) = P_i(0)*(1-r) + P_i(1)*r
+        // Prover calculates the value of the polynomial at that random point: P_i(r) = P_i(0)*(1-r) + P_i(1)*r
         let valAtR = p0 * (1 - r) + p1 * r;
         
-        // Aggiorniamo il log e il grafico
+        // Update the log and the chart
         log.innerHTML+=`<p class="${correct?'ok':'fail'}">Round ${i+1}: P(0)+P(1)=${(p0+p1).toFixed(3)} vs. valore precedente ${prevVal.toFixed(3)} → ${correct?'✅ OK':'❌ FALLITO'}</p>`;
         
         roundData.push({round:i+1, r:r.toFixed(3), val:valAtR, correct});
         
-        // Il Prover genera un nuovo polinomio per il round successivo
+        // The Prover generates a new polynomial for the next round
         let next_g = [];
         for(let j = 0; j < Math.pow(2, n - i - 1); j++) {
             let val = current_g[j] * (1-r) + current_g[j + Math.pow(2, n - i - 1)] * r;
@@ -145,11 +144,11 @@ function startProtocol(){
         }
         current_g = next_g;
         
-        // Il nuovo valore per la verifica del round successivo è P_i(r)
+        // The new value for verification of the next round is P_i(r)
         prevVal = valAtR;
     }
     
-    // Controllo finale
+    // Final check
     if (Math.abs(current_g[0] - prevVal) < 0.01) {
         log.innerHTML+=`<p class="ok"><strong>✅ Protocollo completato con successo!</strong></p>`;
     } else {
@@ -159,7 +158,7 @@ function startProtocol(){
     renderChart(roundData, claimed);
 }
 
-// Renderizza il grafico
+// Renders the chart
 function renderChart(data, claimed){
     if(chart) chart.destroy();
     const ctx = document.getElementById('sumChart').getContext('2d');
