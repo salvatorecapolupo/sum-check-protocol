@@ -3,54 +3,62 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sum Check Protocol Simulation</title>
+<title>Sum Check Protocol: Prover vs Verifier</title>
 <style>
   body { font-family: Arial, sans-serif; padding: 20px; }
-  input { margin: 5px; }
-  button { margin: 10px 0; }
+  input, button { margin: 5px 0; }
+  .log { margin-top: 15px; padding: 10px; border: 1px solid #ccc; }
 </style>
 </head>
 <body>
 
 <h2>Sum Check Protocol Simulation</h2>
 
-<p> 
-a simple example of a simulated Sum Check Protocol using HTML and JavaScript. 
-  This protocol is often used to verify sums or the integrity of data between a prover and a verifier. 
-  Here, we will make a very simplified version: the client will prove that they know numbers that sum to a 
-  certain value without revealing them directly.
-</p>
+<p> La simulazione mostra un Sum Check Protocol semplificato con due ruoli: Prover e Verifier. Il Prover conosce una lista di numeri e dichiara la loro somma. Il Verifier sceglie un punto casuale per sfidare il Prover, che valuta un semplice polinomio in quel punto. Il Verifier controlla poi se la valutazione è coerente con la somma dichiarata. Questo dimostra l’interazione tra Prover e Verifier senza rivelare tutti i numeri. ✅🔢 </p>
+  <p> The simulation shows a simplified Sum Check Protocol with two roles: Prover and Verifier. The Prover knows a list of numbers and claims their sum. The Verifier chooses a random point to challenge the Prover, who evaluates a simple polynomial at that point. The Verifier then checks if the evaluation is consistent with the claimed sum. This demonstrates the interaction between Prover and Verifier without revealing all the numbers. </p>
   
-<label>Enter numbers (comma separated):</label><br>
+<label>Enter numbers (Prover knows them):</label><br>
 <input type="text" id="numbers" placeholder="e.g., 2,3,5"><br>
+<button onclick="startProtocol()">Start Protocol</button>
 
-<label>Enter claimed sum:</label><br>
-<input type="number" id="claimedSum" placeholder="e.g., 10"><br>
-
-<button onclick="simulateSumCheck()">Verify Sum</button>
-
-<p id="result"></p>
+<div class="log" id="log"></div>
 
 <script>
-function simulateSumCheck() {
+function startProtocol() {
+    const log = document.getElementById("log");
+    log.innerHTML = '';
+
+    // Step 1: Prover defines numbers
     const numbersInput = document.getElementById("numbers").value;
-    const claimedSum = parseInt(document.getElementById("claimedSum").value, 10);
-    
-    if (!numbersInput || isNaN(claimedSum)) {
-        alert("Please enter numbers and a valid claimed sum.");
+    if (!numbersInput) {
+        alert("Enter numbers for the Prover.");
         return;
     }
-
-    // Parse numbers
     const numbers = numbersInput.split(',').map(n => parseInt(n.trim(), 10));
 
-    // Step 1: Prover computes the actual sum
-    const actualSum = numbers.reduce((a, b) => a + b, 0);
+    log.innerHTML += `<p><strong>Prover:</strong> I have numbers [${numbers.join(', ')}]</p>`;
 
-    // Step 2: Verifier checks if the sum matches the claimed sum
-    const result = actualSum === claimedSum ? "Sum verified ✅" : "Sum incorrect ❌";
+    // Step 2: Prover computes claimed sum
+    const claimedSum = numbers.reduce((a, b) => a + b, 0);
+    log.innerHTML += `<p><strong>Prover:</strong> I claim the sum is ${claimedSum}</p>`;
 
-    document.getElementById("result").textContent = result;
+    // Step 3: Verifier picks a random "query point"
+    const r = Math.random();
+    log.innerHTML += `<p><strong>Verifier:</strong> I pick a random challenge point r = ${r.toFixed(3)}</p>`;
+
+    // Step 4: Prover computes "partial sum" at point r (simplified)
+    // Here we simulate polynomial evaluation: P(r) = sum(numbers[i]*r^i)
+    let P_r = 0;
+    numbers.forEach((num, i) => P_r += num * Math.pow(r, i));
+    log.innerHTML += `<p><strong>Prover:</strong> I evaluate my polynomial at r: P(r) = ${P_r.toFixed(3)}</p>`;
+
+    // Step 5: Verifier checks consistency with claimed sum (simplified)
+    // Normally this is done recursively over polynomials, but here we just check if P(1) == claimed sum
+    let P_1 = 0;
+    numbers.forEach((num, i) => P_1 += num * Math.pow(1, i));
+    const verified = P_1 === claimedSum;
+    log.innerHTML += `<p><strong>Verifier:</strong> Check P(1) = ${P_1} against claimed sum = ${claimedSum}</p>`;
+    log.innerHTML += `<p><strong>Result:</strong> ${verified ? 'Sum verified ✅' : 'Sum incorrect ❌'}</p>`;
 }
 </script>
 
