@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sum Check Protocol - Visualization</title>
+<title>Sum Check Protocol Visualization</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   body { font-family: Arial, sans-serif; padding: 20px; }
   input, button { margin: 5px 0; }
   #chart-container { width: 80%; max-width: 700px; margin-top: 20px; }
-  .log { margin-top: 15px; padding: 10px; border: 1px solid #ccc; }
+  .log { margin-top: 15px; padding: 10px; border: 1px solid #ccc; max-height: 150px; overflow-y: auto; }
 </style>
 </head>
 <body>
@@ -17,16 +17,16 @@
 <h2>Sum Check Protocol Visualization</h2>
 
 <p>
-La simulazione mostra un Sum Check Protocol semplificato con due ruoli: Prover e Verifier. 
-  Il Prover conosce una lista di numeri e dichiara la loro somma. 
-  Il Verifier sceglie un punto casuale per sfidare il Prover, che valuta un semplice polinomio in quel punto. Il Verifier controlla poi se la valutazione è coerente con la somma dichiarata. 
-  Questo dimostra l’interazione tra Prover e Verifier senza rivelare tutti i numeri. ✅🔢 
-  
+La simulazione mostra un <strong>Sum Check Protocol</strong> semplificato con due ruoli: <strong>Prover</strong> e <strong>Verifier</strong>. 
+Il Prover conosce una lista di numeri e dichiara la loro somma. Il Verifier sceglie un punto casuale per sfidare il Prover, 
+che valuta un semplice polinomio in quel punto. Il grafico mostra come il Prover risponde ai challenge points del Verifier: 
+i punti verdi indicano valutazioni corrette, quelli rossi eventuali discrepanze, e la linea rossa rappresenta la somma dichiarata. 
+Questo dimostra l’interazione senza rivelare tutti i numeri. ✅🔢
 </p>
-  
-<label>Inserisci numeri interi a tua scelta, senza spazi e separati da virgola:</label><br>
-<input type="text" id="numbers" placeholder="esempio: 2,3,5, ..."><br>
-<button onclick="addProof()">Proof</button>
+
+<label>Enter numbers (Prover knows them):</label><br>
+<input type="text" id="numbers" placeholder="e.g., 2,3,5"><br>
+<button onclick="addProof()">Add Proof</button>
 
 <div class="log" id="log"></div>
 
@@ -35,7 +35,8 @@ La simulazione mostra un Sum Check Protocol semplificato con due ruoli: Prover e
 </div>
 
 <script>
-let proofs = []; // Keep track of each proof
+let proofs = [];
+let maxPoints = 20; // Mantieni solo le ultime 20 prove
 let chart;
 
 function initChart() {
@@ -47,13 +48,15 @@ function initChart() {
                 {
                     label: 'Prover Evaluations',
                     data: [],
-                    backgroundColor: 'blue'
+                    backgroundColor: [],
+                    pointRadius: 6
                 },
                 {
                     label: 'Claimed Sum',
                     data: [],
                     type: 'line',
                     borderColor: 'red',
+                    borderWidth: 2,
                     fill: false
                 }
             ]
@@ -61,7 +64,7 @@ function initChart() {
         options: {
             scales: {
                 x: { title: { display: true, text: 'Challenge Point r' }, min: 0, max: 1 },
-                y: { title: { display: true, text: 'Polynomial Value P(r)' } }
+                y: { title: { display: true, text: 'Polynomial Value P(r)' }, min: 0 }
             }
         }
     });
@@ -75,21 +78,28 @@ function addProof() {
         return;
     }
     const numbers = numbersInput.split(',').map(n => parseInt(n.trim(), 10));
-
     const claimedSum = numbers.reduce((a, b) => a + b, 0);
-    const r = Math.random(); // Verifier chooses random challenge point
+    const r = Math.random();
 
     // Prover evaluates polynomial at r
     let P_r = numbers.reduce((sum, num, i) => sum + num * Math.pow(r, i), 0);
 
-    log.innerHTML += `<p>Verifier chooses r=${r.toFixed(3)}, Prover evaluates P(r)=${P_r.toFixed(3)}</p>`;
+    // Verifier checks
+    let correct = Math.abs(P_r - claimedSum) < 0.001;
 
-    // Add data point to chart
-    proofs.push({r, P_r, claimedSum});
+    log.innerHTML += `<p>Verifier chooses r=${r.toFixed(3)}, Prover evaluates P(r)=${P_r.toFixed(3)} → ${correct ? '✅ Correct' : '❌ Incorrect'}</p>`;
+    log.scrollTop = log.scrollHeight; // scroll automatico
+
+    // Aggiorna grafico
+    if (chart.data.datasets[0].data.length >= maxPoints) {
+        chart.data.datasets[0].data.shift();
+        chart.data.datasets[0].backgroundColor.shift();
+    }
 
     chart.data.datasets[0].data.push({x: r, y: P_r});
-    
-    // Update claimed sum line (horizontal)
+    chart.data.datasets[0].backgroundColor.push(correct ? 'green' : 'red');
+
+    // Aggiorna linea della somma dichiarata
     chart.data.datasets[1].data = [
         {x: 0, y: claimedSum},
         {x: 1, y: claimedSum}
@@ -98,7 +108,7 @@ function addProof() {
     chart.update();
 }
 
-// Initialize chart on page load
+// Inizializza grafico
 initChart();
 </script>
 
