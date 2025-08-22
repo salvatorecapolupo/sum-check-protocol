@@ -78,4 +78,73 @@ function startProtocol(){
     let claimed = parseInt(document.getElementById("claimedSum").value);
     if(isNaN(claimed)) claimed = correctSum;
 
-    log.innerHTML+=`<
+    log.innerHTML+=`<p>Prover claims sum = ${claimed}, actual sum = ${correctSum}</p>`;
+    
+    let fixed = {}; // variables fixed per round
+    let roundData = [];
+    let prevVal = claimed;
+
+    for(let i=0;i<n;i++){
+        // Prover computes polynomial for variable i
+        let p0 = evaluatePartialSum(g,n,{...fixed,[i]:0});
+        let p1 = evaluatePartialSum(g,n,{...fixed,[i]:1});
+        let r = Math.random(); // Verifier challenge
+        let valAtR = p0*(1-r)+p1*r;
+        let correct = Math.abs(valAtR-prevVal)<0.01;
+        roundData.push({round:i+1,r:r.toFixed(3),val:valAtR,correct});
+        log.innerHTML+=`<p>Round ${i+1}: challenge r=${r.toFixed(3)}, P(r)=${valAtR.toFixed(3)} → ${correct?'✅ OK':'❌ FAIL'}</p>`;
+        // Fix variable for next round according to challenge
+        fixed[i] = r<0.5?0:1;
+        prevVal = valAtR; // for next round verification
+    }
+
+    renderChart(roundData, claimed);
+}
+
+// Render chart
+function renderChart(data, claimed){
+    if(chart) chart.destroy();
+    const ctx = document.getElementById('sumChart').getContext('2d');
+    chart = new Chart(ctx,{
+        type:'scatter',
+        data:{
+            datasets:[
+                {
+                    label:'Round Evaluations',
+                    data:data.map(d=>({x:d.round,y:d.val})),
+                    backgroundColor:data.map(d=>d.correct?'green':'red'),
+                    pointRadius:8
+                },
+                {
+                    label:'Claimed Sum',
+                    data:[{x:0,y:claimed},{x:data.length+1,y:claimed}],
+                    type:'line',
+                    borderColor:'red',
+                    borderWidth:2,
+                    fill:false
+                }
+            ]
+        },
+        options:{
+            responsive:true,
+            scales:{
+                x:{title:{display:true,text:'Round'},min:1,max:data.length+1},
+                y:{title:{display:true,text:'Polynomial Value'},min:0}
+            },
+            plugins:{
+                tooltip:{
+                    callbacks:{
+                        label:function(context){
+                            let idx=context.dataIndex;
+                            let d=data[idx];
+                            return [`Round ${d.round}`, `P(r)=${d.val.toFixed(3)}`, d.correct?'✅ OK':'❌ FAIL'];
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+</body>
+</html>
