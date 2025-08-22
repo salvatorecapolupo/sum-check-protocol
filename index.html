@@ -4,15 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sum Check Protocol Simulation</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   body { font-family: Arial, sans-serif; margin:0; padding:20px; }
   h2 { text-align:center; }
-  .container { max-width:800px; margin:auto; padding:10px; }
+  .container { max-width:900px; margin:auto; padding:10px; }
   input, button { padding:5px; margin:5px 0; width:100%; box-sizing:border-box; }
-  .log { margin-top:15px; padding:10px; border:1px solid #ccc; max-height:200px; overflow-y:auto; background:#f9f9f9; }
+  .log { margin-top:15px; padding:10px; border:1px solid #ccc; max-height:250px; overflow-y:auto; background:#f9f9f9; }
   canvas { width:100% !important; height:auto !important; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -20,16 +20,16 @@
 <h2>Sum Check Protocol Simulation</h2>
 
 <p>
-This simulation shows a simplified but **faithful Sum Check Protocol**. 
-The <strong>Prover</strong> has a boolean function g(x₁,...,xₙ) and claims a sum. 
-The <strong>Verifier</strong> interacts in multiple rounds using random challenges. 
-The chart shows evaluations per round, with green points for consistent proofs and red for failures. ✅
+This simulation faithfully represents a simplified <strong>Sum Check Protocol</strong>. 
+The <strong>Prover</strong> knows a function \(g(x_1,...,x_n)\) and claims a sum. 
+The <strong>Verifier</strong> interacts over <strong>n rounds</strong>, choosing random challenges. 
+The chart shows evaluations per round: green points = correct, red points = fail, and the red line = claimed sum. ✅
 </p>
 
 <label>Number of variables (n):</label>
 <input type="number" id="numVars" placeholder="e.g., 3" min="1" max="8">
 
-<label>Optional: set claimed sum (or leave empty to use correct sum):</label>
+<label>Optional: claimed sum (leave empty to use correct sum):</label>
 <input type="number" id="claimedSum" placeholder="e.g., 4">
 
 <button onclick="startProtocol()">Start Protocol</button>
@@ -44,19 +44,17 @@ The chart shows evaluations per round, with green points for consistent proofs a
 <script>
 let chart;
 
-function generateFunction(n) {
-    // g: array of 0/1 values for all 2^n inputs
+// Generate g(x1,...,xn) as an array for 2^n inputs
+function generateFunction(n){
     let size = Math.pow(2,n);
     let g = [];
-    for(let i=0;i<size;i++) {
-        g.push(Math.floor(Math.random()*5)); // values 0..4
-    }
+    for(let i=0;i<size;i++) g.push(Math.floor(Math.random()*5)); // 0..4
     return g;
 }
 
-function evaluatePartialSum(g, n, fixed={}) {
-    // recursively sum over free variables
-    function helper(level,index) {
+// Recursively evaluate sum over free variables
+function evaluatePartialSum(g,n,fixed={}){
+    function helper(level,index){
         if(level===n) return g[index];
         let sum=0;
         for(let b=0;b<=1;b++){
@@ -68,11 +66,12 @@ function evaluatePartialSum(g, n, fixed={}) {
     return helper(0,0);
 }
 
-function startProtocol() {
+// Main protocol
+function startProtocol(){
     const log = document.getElementById("log");
     log.innerHTML='';
     const n = parseInt(document.getElementById("numVars").value);
-    if(isNaN(n) || n<1 || n>8){ alert("Enter n=1..8"); return;}
+    if(isNaN(n)||n<1||n>8){ alert("Enter n=1..8"); return;}
     
     const g = generateFunction(n);
     let correctSum = evaluatePartialSum(g,n,{});
@@ -81,27 +80,27 @@ function startProtocol() {
 
     log.innerHTML+=`<p>Prover claims sum = ${claimed}, actual sum = ${correctSum}</p>`;
     
-    let fixed = {};
+    let fixed = {}; // variables fixed per round
     let roundData = [];
-    
+
     for(let i=0;i<n;i++){
-        // Prover sends polynomial for x_i
+        // Prover computes polynomial for variable i
         let p0 = evaluatePartialSum(g,n,{...fixed,[i]:0});
         let p1 = evaluatePartialSum(g,n,{...fixed,[i]:1});
-        // polynomial: P(x_i) = p0*(1-x_i)+p1*x_i
-        let r = Math.random(); // verifier challenge
+        let r = Math.random(); // Verifier challenge
         let valAtR = p0*(1-r)+p1*r;
         let expectedPrev = (i===0)?claimed: roundData[i-1].val;
         let correct = Math.abs(valAtR-expectedPrev)<0.01;
         roundData.push({round:i+1,r:r.toFixed(3),val:valAtR,correct});
-        log.innerHTML+=`<p>Round ${i+1}: challenge r=${r.toFixed(3)}, P(r)=${valAtR.toFixed(3)} → ${correct ? '✅ OK' : '❌ FAIL'}</p>`;
-        // fix variable for next round
-        fixed[i]=r<0.5?0:1; // simple choice
+        log.innerHTML+=`<p>Round ${i+1}: challenge r=${r.toFixed(3)}, P(r)=${valAtR.toFixed(3)} → ${correct?'✅ OK':'❌ FAIL'}</p>`;
+        // FIX the variable for next round at the challenge point
+        fixed[i] = r<0.5?0:1; // deterministically pick 0/1 to simulate fixing
     }
 
     renderChart(roundData, claimed);
 }
 
+// Render chart
 function renderChart(data, claimed){
     if(chart) chart.destroy();
     const ctx = document.getElementById('sumChart').getContext('2d');
@@ -128,7 +127,7 @@ function renderChart(data, claimed){
         options:{
             responsive:true,
             scales:{
-                x:{title:{display:true,text:'Round'},min:1,max:data.length},
+                x:{title:{display:true,text:'Round'},min:1,max:data.length+1},
                 y:{title:{display:true,text:'Polynomial Value'},min:0}
             },
             plugins:{
@@ -146,6 +145,5 @@ function renderChart(data, claimed){
     });
 }
 </script>
-
 </body>
 </html>
