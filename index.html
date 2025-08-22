@@ -3,113 +3,148 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sum Check Protocol Visualization</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Sum Check Protocol Simulation</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 20px; }
-  input, button { margin: 5px 0; }
-  #chart-container { width: 80%; max-width: 700px; margin-top: 20px; }
-  .log { margin-top: 15px; padding: 10px; border: 1px solid #ccc; max-height: 150px; overflow-y: auto; }
+  body { font-family: Arial, sans-serif; margin:0; padding:20px; }
+  h2 { text-align:center; }
+  .container { max-width:800px; margin:auto; padding:10px; }
+  input, button { padding:5px; margin:5px 0; width:100%; box-sizing:border-box; }
+  .log { margin-top:15px; padding:10px; border:1px solid #ccc; max-height:200px; overflow-y:auto; background:#f9f9f9; }
+  canvas { width:100% !important; height:auto !important; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-<h2>Sum Check Protocol Visualization</h2>
+<div class="container">
+<h2>Sum Check Protocol Simulation</h2>
 
 <p>
-La simulazione mostra un <strong>Sum Check Protocol</strong> semplificato con due ruoli: <strong>Prover</strong> e <strong>Verifier</strong>. 
-Il Prover conosce una lista di numeri e dichiara la loro somma. Il Verifier sceglie un punto casuale per sfidare il Prover, 
-che valuta un semplice polinomio in quel punto. Il grafico mostra come il Prover risponde ai challenge points del Verifier: 
-i punti verdi indicano valutazioni corrette, quelli rossi eventuali discrepanze, e la linea rossa rappresenta la somma dichiarata. 
-Questo dimostra l’interazione senza rivelare tutti i numeri. ✅🔢
+This simulation shows a simplified but **faithful Sum Check Protocol**. 
+The <strong>Prover</strong> has a boolean function g(x₁,...,xₙ) and claims a sum. 
+The <strong>Verifier</strong> interacts in multiple rounds using random challenges. 
+The chart shows evaluations per round, with green points for consistent proofs and red for failures. ✅
 </p>
 
-<label>Enter numbers (Prover knows them):</label><br>
-<input type="text" id="numbers" placeholder="e.g., 2,3,5"><br>
-<button onclick="addProof()">Add Proof</button>
+<label>Number of variables (n):</label>
+<input type="number" id="numVars" placeholder="e.g., 3" min="1" max="8">
+
+<label>Optional: set claimed sum (or leave empty to use correct sum):</label>
+<input type="number" id="claimedSum" placeholder="e.g., 4">
+
+<button onclick="startProtocol()">Start Protocol</button>
 
 <div class="log" id="log"></div>
 
-<div id="chart-container">
+<div style="margin-top:20px;">
     <canvas id="sumChart"></canvas>
+</div>
 </div>
 
 <script>
-let proofs = [];
-let maxPoints = 20; // Mantieni solo le ultime 20 prove
 let chart;
 
-function initChart() {
+function generateFunction(n) {
+    // g: array of 0/1 values for all 2^n inputs
+    let size = Math.pow(2,n);
+    let g = [];
+    for(let i=0;i<size;i++) {
+        g.push(Math.floor(Math.random()*5)); // values 0..4
+    }
+    return g;
+}
+
+function evaluatePartialSum(g, n, fixed={}) {
+    // recursively sum over free variables
+    function helper(level,index) {
+        if(level===n) return g[index];
+        let sum=0;
+        for(let b=0;b<=1;b++){
+            if(fixed[level]!==undefined && fixed[level]!==b) continue;
+            sum+=helper(level+1,index*2+b);
+        }
+        return sum;
+    }
+    return helper(0,0);
+}
+
+function startProtocol() {
+    const log = document.getElementById("log");
+    log.innerHTML='';
+    const n = parseInt(document.getElementById("numVars").value);
+    if(isNaN(n) || n<1 || n>8){ alert("Enter n=1..8"); return;}
+    
+    const g = generateFunction(n);
+    let correctSum = evaluatePartialSum(g,n,{});
+    let claimed = parseInt(document.getElementById("claimedSum").value);
+    if(isNaN(claimed)) claimed = correctSum;
+
+    log.innerHTML+=`<p>Prover claims sum = ${claimed}, actual sum = ${correctSum}</p>`;
+    
+    let fixed = {};
+    let roundData = [];
+    
+    for(let i=0;i<n;i++){
+        // Prover sends polynomial for x_i
+        let p0 = evaluatePartialSum(g,n,{...fixed,[i]:0});
+        let p1 = evaluatePartialSum(g,n,{...fixed,[i]:1});
+        // polynomial: P(x_i) = p0*(1-x_i)+p1*x_i
+        let r = Math.random(); // verifier challenge
+        let valAtR = p0*(1-r)+p1*r;
+        let expectedPrev = (i===0)?claimed: roundData[i-1].val;
+        let correct = Math.abs(valAtR-expectedPrev)<0.01;
+        roundData.push({round:i+1,r:r.toFixed(3),val:valAtR,correct});
+        log.innerHTML+=`<p>Round ${i+1}: challenge r=${r.toFixed(3)}, P(r)=${valAtR.toFixed(3)} → ${correct ? '✅ OK' : '❌ FAIL'}</p>`;
+        // fix variable for next round
+        fixed[i]=r<0.5?0:1; // simple choice
+    }
+
+    renderChart(roundData, claimed);
+}
+
+function renderChart(data, claimed){
+    if(chart) chart.destroy();
     const ctx = document.getElementById('sumChart').getContext('2d');
-    chart = new Chart(ctx, {
-        type: 'scatter',
-        data: {
-            datasets: [
+    chart = new Chart(ctx,{
+        type:'scatter',
+        data:{
+            datasets:[
                 {
-                    label: 'Prover Evaluations',
-                    data: [],
-                    backgroundColor: [],
-                    pointRadius: 6
+                    label:'Round Evaluations',
+                    data:data.map(d=>({x:d.round,y:d.val})),
+                    backgroundColor:data.map(d=>d.correct?'green':'red'),
+                    pointRadius:8
                 },
                 {
-                    label: 'Claimed Sum',
-                    data: [],
-                    type: 'line',
-                    borderColor: 'red',
-                    borderWidth: 2,
-                    fill: false
+                    label:'Claimed Sum',
+                    data:[{x:0,y:claimed},{x:data.length+1,y:claimed}],
+                    type:'line',
+                    borderColor:'red',
+                    borderWidth:2,
+                    fill:false
                 }
             ]
         },
-        options: {
-            scales: {
-                x: { title: { display: true, text: 'Challenge Point r' }, min: 0, max: 1 },
-                y: { title: { display: true, text: 'Polynomial Value P(r)' }, min: 0 }
+        options:{
+            responsive:true,
+            scales:{
+                x:{title:{display:true,text:'Round'},min:1,max:data.length},
+                y:{title:{display:true,text:'Polynomial Value'},min:0}
+            },
+            plugins:{
+                tooltip:{
+                    callbacks:{
+                        label:function(context){
+                            let idx=context.dataIndex;
+                            let d=data[idx];
+                            return [`Round ${d.round}`, `P(r)=${d.val.toFixed(3)}`, d.correct?'✅ OK':'❌ FAIL'];
+                        }
+                    }
+                }
             }
         }
     });
 }
-
-function addProof() {
-    const log = document.getElementById("log");
-    const numbersInput = document.getElementById("numbers").value;
-    if (!numbersInput) {
-        alert("Enter numbers for the Prover.");
-        return;
-    }
-    const numbers = numbersInput.split(',').map(n => parseInt(n.trim(), 10));
-    const claimedSum = numbers.reduce((a, b) => a + b, 0);
-    const r = Math.random();
-
-    // Prover evaluates polynomial at r
-    let P_r = numbers.reduce((sum, num, i) => sum + num * Math.pow(r, i), 0);
-
-    // Verifier checks
-    let correct = Math.abs(P_r - claimedSum) < 0.001;
-
-    log.innerHTML += `<p>Verifier chooses r=${r.toFixed(3)}, Prover evaluates P(r)=${P_r.toFixed(3)} → ${correct ? '✅ Correct' : '❌ Incorrect'}</p>`;
-    log.scrollTop = log.scrollHeight; // scroll automatico
-
-    // Aggiorna grafico
-    if (chart.data.datasets[0].data.length >= maxPoints) {
-        chart.data.datasets[0].data.shift();
-        chart.data.datasets[0].backgroundColor.shift();
-    }
-
-    chart.data.datasets[0].data.push({x: r, y: P_r});
-    chart.data.datasets[0].backgroundColor.push(correct ? 'green' : 'red');
-
-    // Aggiorna linea della somma dichiarata
-    chart.data.datasets[1].data = [
-        {x: 0, y: claimedSum},
-        {x: 1, y: claimedSum}
-    ];
-
-    chart.update();
-}
-
-// Inizializza grafico
-initChart();
 </script>
 
 </body>
