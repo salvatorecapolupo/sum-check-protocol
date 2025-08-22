@@ -6,33 +6,39 @@
 <title>Sum Check Protocol Simulation</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  body { font-family: Arial, sans-serif; margin:0; padding:20px; }
-  h2 { text-align:center; }
-  .container { max-width:900px; margin:auto; padding:10px; }
-  input, button { padding:5px; margin:5px 0; width:100%; box-sizing:border-box; }
-  .log { margin-top:15px; padding:10px; border:1px solid #ccc; max-height:250px; overflow-y:auto; background:#f9f9f9; }
-  canvas { width:100% !important; height:auto !important; }
+    body { font-family: Arial, sans-serif; margin:0; padding:20px; background-color: #f0f0f5; }
+    h2 { text-align:center; color: #333; }
+    .container { max-width:900px; margin:auto; padding:20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    label { font-weight: bold; margin-top: 10px; display: block; }
+    input { padding: 8px; margin: 5px 0 15px 0; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
+    button { padding: 12px; margin: 10px 0; width: 100%; box-sizing: border-box; background-color: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; transition: background-color 0.3s; }
+    button:hover { background-color: #45a049; }
+    .log { margin-top:15px; padding:15px; border:1px solid #ddd; border-radius: 8px; max-height:250px; overflow-y:auto; background:#f9f9f9; }
+    .log p { margin: 5px 0; padding: 0; line-height: 1.5; }
+    .log p.ok { color: green; }
+    .log p.fail { color: red; }
+    canvas { width:100% !important; height:auto !important; }
 </style>
 </head>
 <body>
 
 <div class="container">
-<h2>Sum Check Protocol Simulation</h2>
+<h2>Simulazione del Sum Check Protocol</h2>
 
 <p>
-Faithful simulation of the <strong>Sum Check Protocol</strong>. 
-The <strong>Prover</strong> knows a function \(g(x_1,...,x_n)\) and claims a sum. 
-The <strong>Verifier</strong> challenges over multiple rounds using random values. 
-The chart shows evaluations per round: green = correct, red = fail, red line = claimed sum. ✅
+Una simulazione fedele del <strong>Sum Check Protocol</strong>.
+Il <strong>Prover</strong> conosce una funzione \(g(x_1,...,x_n)\) e dichiara una somma.
+Il <strong>Verificatore</strong> effettua una serie di sfide a ogni round usando valori casuali.
+Il grafico mostra i valori calcolati a ogni round.
 </p>
 
-<label>Number of variables (n):</label>
-<input type="number" id="numVars" placeholder="e.g., 3" min="1" max="8">
+<label for="numVars">Numero di variabili (n):</label>
+<input type="number" id="numVars" placeholder="e.g., 3" min="1" max="8" value="3">
 
-<label>Optional: claimed sum (leave empty to use correct sum):</label>
+<label for="claimedSum">Somma dichiarata (lascia vuoto per usare la somma corretta):</label>
 <input type="number" id="claimedSum" placeholder="e.g., 4">
 
-<button onclick="startProtocol()">Start Protocol</button>
+<button onclick="startProtocol()">Avvia Protocollo</button>
 
 <div class="log" id="log"></div>
 
@@ -44,66 +50,116 @@ The chart shows evaluations per round: green = correct, red = fail, red line = c
 <script>
 let chart;
 
-// Generate g(x1,...,xn) as an array for 2^n inputs
+// Genera un polinomio multivariato come un array di valori
 function generateFunction(n){
     let size = Math.pow(2,n);
     let g = [];
-    for(let i=0;i<size;i++) g.push(Math.floor(Math.random()*5)); // 0..4
+    for(let i=0;i<size;i++) {
+        // Genera coefficienti casuali
+        g.push(Math.floor(Math.random()*5)); 
+    }
     return g;
 }
 
-// Recursively evaluate sum over free variables
-function evaluatePartialSum(g,n,fixed={}){
-    function helper(level,index){
-        if(level===n) return g[index];
-        let sum=0;
-        for(let b=0;b<=1;b++){
-            if(fixed[level]!==undefined && fixed[level]!==b) continue;
-            sum+=helper(level+1,index*2+b);
+// Funzione per valutare il polinomio in un punto specifico
+function evaluate(g, x) {
+    let sum = 0;
+    // Iteriamo su tutte le 2^n combinazioni possibili
+    for(let i=0; i<Math.pow(2, g.length); i++) {
+        // Convertiamo l'indice in una stringa binaria per ottenere le variabili
+        let binary = i.toString(2).padStart(g.length, '0');
+        let term = g[i];
+        for(let j=0; j<g.length; j++) {
+            // Sostituiamo ogni variabile con il valore corrispondente in x
+            if (binary[j] === '1') {
+                term *= x[j];
+            } else {
+                term *= (1 - x[j]);
+            }
         }
-        return sum;
+        sum += term;
     }
-    return helper(0,0);
+    return sum;
 }
 
-// Main protocol
+// Funzione principale che esegue il protocollo
 function startProtocol(){
     const log = document.getElementById("log");
-    log.innerHTML='';
+    log.innerHTML = '';
     const n = parseInt(document.getElementById("numVars").value);
-    if(isNaN(n)||n<1||n>8){ alert("Enter n=1..8"); return;}
     
-    const g = generateFunction(n);
-    let correctSum = evaluatePartialSum(g,n,{});
+    if(isNaN(n) || n < 1 || n > 8){
+        alert("Inserisci un numero di variabili tra 1 e 8.");
+        return;
+    }
+    
+    // Genera il polinomio 'g' con n variabili
+    let g = generateFunction(n);
+    
+    // Calcola la somma corretta
+    let x = new Array(n).fill(0);
+    let correctSum = 0;
+    for(let i=0; i<Math.pow(2, n); i++) {
+        let current_x = i.toString(2).padStart(n, '0').split('').map(Number);
+        correctSum += evaluate(g, current_x);
+    }
+
     let claimed = parseInt(document.getElementById("claimedSum").value);
     if(isNaN(claimed)) claimed = correctSum;
 
-    log.innerHTML+=`<p>Prover claims sum = ${claimed}, actual sum = ${correctSum}</p>`;
+    log.innerHTML+=`<p>Il Prover dichiara una somma di ${claimed}. La somma reale è ${correctSum}.</p>`;
     
-    let fixed = {}; // variables fixed per round
-    let roundData = [];
     let prevVal = claimed;
-
-    for(let i=0;i<n;i++){
-        // Prover computes polynomial for variable i
-        let p0 = evaluatePartialSum(g,n,{...fixed,[i]:0});
-        let p1 = evaluatePartialSum(g,n,{...fixed,[i]:1});
-        let r = Math.random(); // Verifier challenge
-        let valAtR = p0*(1-r)+p1*r;
-        //let correct = Math.abs(valAtR-prevVal)<0.01;
+    let roundData = [];
+    let current_g = g;
+    
+    for(let i = 0; i < n; i++) {
+        // Prover calcola P_i(x_i)
+        // P_i(0) è la somma del polinomio quando la variabile x_i è fissata a 0
+        let p0 = 0;
+        let p1 = 0;
+        for(let j = 0; j < Math.pow(2, n - i - 1); j++) {
+            p0 += current_g[j];
+            p1 += current_g[j + Math.pow(2, n - i - 1)];
+        }
+        
+        // Verificatore controlla se P_i(0) + P_i(1) è uguale a P_{i-1}(r_{i-1})
+        // Nel primo round, il Verificatore controlla se P_0(0)+P_0(1) è uguale alla somma dichiarata
         let correct = Math.abs((p0 + p1) - prevVal) < 0.01;
-        roundData.push({round:i+1,r:r.toFixed(3),val:valAtR,correct});
-        //log.innerHTML+=`<p>Round ${i+1}: challenge r=${r.toFixed(3)}, P(r)=${valAtR.toFixed(3)} → ${correct?'✅ OK':'❌ FAIL'}</p>`;
-        log.innerHTML+=`<p>Round ${i+1}: P(0)+P(1)=${(p0+p1).toFixed(3)}, P(r)=${valAtR.toFixed(3)} → ${correct?'✅ OK':'❌ FAIL'}</p>`;
-        // Fix variable for next round according to challenge
-        fixed[i] = r<0.5?0:1;
-        prevVal = valAtR; // for next round verification
+        
+        let r = Math.random(); // Verificatore sceglie un valore casuale
+        
+        // Prover calcola il valore del polinomio a quel punto casuale: P_i(r) = P_i(0)*(1-r) + P_i(1)*r
+        let valAtR = p0 * (1 - r) + p1 * r;
+        
+        // Aggiorniamo il log e il grafico
+        log.innerHTML+=`<p class="${correct?'ok':'fail'}">Round ${i+1}: P(0)+P(1)=${(p0+p1).toFixed(3)} vs. valore precedente ${prevVal.toFixed(3)} → ${correct?'✅ OK':'❌ FALLITO'}</p>`;
+        
+        roundData.push({round:i+1, r:r.toFixed(3), val:valAtR, correct});
+        
+        // Il Prover genera un nuovo polinomio per il round successivo
+        let next_g = [];
+        for(let j = 0; j < Math.pow(2, n - i - 1); j++) {
+            let val = current_g[j] * (1-r) + current_g[j + Math.pow(2, n - i - 1)] * r;
+            next_g.push(val);
+        }
+        current_g = next_g;
+        
+        // Il nuovo valore per la verifica del round successivo è P_i(r)
+        prevVal = valAtR;
+    }
+    
+    // Controllo finale
+    if (Math.abs(current_g[0] - prevVal) < 0.01) {
+        log.innerHTML+=`<p class="ok"><strong>✅ Protocollo completato con successo!</strong></p>`;
+    } else {
+        log.innerHTML+=`<p class="fail"><strong>❌ Protocollo fallito all'ultimo controllo!</strong></p>`;
     }
 
     renderChart(roundData, claimed);
 }
 
-// Render chart
+// Renderizza il grafico
 function renderChart(data, claimed){
     if(chart) chart.destroy();
     const ctx = document.getElementById('sumChart').getContext('2d');
@@ -112,13 +168,13 @@ function renderChart(data, claimed){
         data:{
             datasets:[
                 {
-                    label:'Round Evaluations',
+                    label:'Valori calcolati per round',
                     data:data.map(d=>({x:d.round,y:d.val})),
                     backgroundColor:data.map(d=>d.correct?'green':'red'),
                     pointRadius:8
                 },
                 {
-                    label:'Claimed Sum',
+                    label:'Somma dichiarata',
                     data:[{x:0,y:claimed},{x:data.length+1,y:claimed}],
                     type:'line',
                     borderColor:'red',
@@ -131,7 +187,7 @@ function renderChart(data, claimed){
             responsive:true,
             scales:{
                 x:{title:{display:true,text:'Round'},min:1,max:data.length+1},
-                y:{title:{display:true,text:'Polynomial Value'},min:0}
+                y:{title:{display:true,text:'Valore del Polinomio'},min:0}
             },
             plugins:{
                 tooltip:{
@@ -139,7 +195,7 @@ function renderChart(data, claimed){
                         label:function(context){
                             let idx=context.dataIndex;
                             let d=data[idx];
-                            return [`Round ${d.round}`, `P(r)=${d.val.toFixed(3)}`, d.correct?'✅ OK':'❌ FAIL'];
+                            return [`Round ${d.round}`, `P(r)=${d.val.toFixed(3)}`, d.correct?'✅ OK':'❌ FALLITO'];
                         }
                     }
                 }
