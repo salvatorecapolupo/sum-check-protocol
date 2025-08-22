@@ -90,9 +90,11 @@ function startProtocol(){
         let p1 = evaluatePartialSum(g,n,{...fixed,[i]:1});
         let r = Math.random(); // Verifier challenge
         let valAtR = p0*(1-r)+p1*r;
-        let correct = Math.abs(valAtR-prevVal)<0.01;
+        //let correct = Math.abs(valAtR-prevVal)<0.01;
+        let correct = Math.abs((p0 + p1) - prevVal) < 0.01;
         roundData.push({round:i+1,r:r.toFixed(3),val:valAtR,correct});
-        log.innerHTML+=`<p>Round ${i+1}: challenge r=${r.toFixed(3)}, P(r)=${valAtR.toFixed(3)} → ${correct?'✅ OK':'❌ FAIL'}</p>`;
+        //log.innerHTML+=`<p>Round ${i+1}: challenge r=${r.toFixed(3)}, P(r)=${valAtR.toFixed(3)} → ${correct?'✅ OK':'❌ FAIL'}</p>`;
+        log.innerHTML+=`<p>Round ${i+1}: P(0)+P(1)=${(p0+p1).toFixed(3)}, P(r)=${valAtR.toFixed(3)} → ${correct?'✅ OK':'❌ FAIL'}</p>`;
         // Fix variable for next round according to challenge
         fixed[i] = r<0.5?0:1;
         prevVal = valAtR; // for next round verification
