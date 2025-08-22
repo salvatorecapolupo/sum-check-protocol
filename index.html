@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sum Check Protocol Simulation</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  input { margin: 5px; }
+  button { margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<h2>Sum Check Protocol Simulation</h2>
+
+<p> 
+a simple example of a simulated Sum Check Protocol using HTML and JavaScript. 
+  This protocol is often used to verify sums or the integrity of data between a prover and a verifier. 
+  Here, we will make a very simplified version: the client will prove that they know numbers that sum to a 
+  certain value without revealing them directly.
+</p>
+  
+<label>Enter numbers (comma separated):</label><br>
+<input type="text" id="numbers" placeholder="e.g., 2,3,5"><br>
+
+<label>Enter claimed sum:</label><br>
+<input type="number" id="claimedSum" placeholder="e.g., 10"><br>
+
+<button onclick="simulateSumCheck()">Verify Sum</button>
+
+<p id="result"></p>
+
+<script>
+function simulateSumCheck() {
+    const numbersInput = document.getElementById("numbers").value;
+    const claimedSum = parseInt(document.getElementById("claimedSum").value, 10);
+    
+    if (!numbersInput || isNaN(claimedSum)) {
+        alert("Please enter numbers and a valid claimed sum.");
+        return;
+    }
+
+    // Parse numbers
+    const numbers = numbersInput.split(',').map(n => parseInt(n.trim(), 10));
+
+    // Step 1: Prover computes the actual sum
+    const actualSum = numbers.reduce((a, b) => a + b, 0);
+
+    // Step 2: Verifier checks if the sum matches the claimed sum
+    const result = actualSum === claimedSum ? "Sum verified ✅" : "Sum incorrect ❌";
+
+    document.getElementById("result").textContent = result;
+}
+</script>
+
+</body>
+</html>
