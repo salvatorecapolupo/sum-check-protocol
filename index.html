@@ -1,211 +1,270 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sum Check Protocol Simulation</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sum Check Protocol — Simulazione (migliorata)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-    body { font-family: Arial, sans-serif; margin:0; padding:20px; background-color: #f0f0f5; }
-    h2 { text-align:center; color: #333; }
-    .container { max-width:900px; margin:auto; padding:20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    label { font-weight: bold; margin-top: 10px; display: block; }
-    input { padding: 8px; margin: 5px 0 15px 0; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
-    button { padding: 12px; margin: 10px 0; width: 100%; box-sizing: border-box; background-color: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; transition: background-color 0.3s; }
-    button:hover { background-color: #45a049; }
-    .log { margin-top:15px; padding:15px; border:1px solid #ddd; border-radius: 8px; max-height:250px; overflow-y:auto; background:#f9f9f9; }
-    .log p { margin: 5px 0; padding: 0; line-height: 1.5; }
-    .log p.ok { color: green; }
-    .log p.fail { color: red; }
-    canvas { width:100% !important; height:auto !important; }
+  :root{--bg:#f0f0f5;--card:#fff;--accent:#4caf50;--danger:#e74c3c}
+  body{font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial; margin:0; padding:20px; background:var(--bg); color:#222}
+  .container{max-width:980px;margin:0 auto;background:var(--card);padding:20px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.08)}
+  h1{font-size:20px;margin:0 0 12px}
+  p.lead{color:#444;margin:0 0 16px}
+  label{font-weight:600;display:block;margin-top:10px}
+  input[type=number], input[type=text], select{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .controls{margin-top:12px}
+  button{width:100%;padding:12px;border-radius:8px;border:0;background:var(--accent);color:white;font-weight:600;cursor:pointer}
+  .log{margin-top:14px;padding:12px;border-radius:8px;border:1px solid #eee;background:#fafafa;max-height:260px;overflow:auto}
+  .log p{margin:6px 0;padding:0}
+  .ok{color:green}
+  .fail{color:var(--danger)}
+  .small{font-size:13px;color:#666}
+  footer{margin-top:14px;text-align:center;font-size:13px;color:#666}
+  canvas{max-width:100%}
+  .options{display:flex;gap:12px;margin-top:8px}
+  .options label{display:flex;align-items:center;gap:8px;font-weight:500}
 </style>
 </head>
 <body>
+  <div class="container">
+    <h1>Simulazione del Sum Check Protocol (migliorata)</h1>
+    <p class="lead">Questa demo mostra una versione interattiva e corretta del Sum Check Protocol. Puoi configurare il numero di variabili, forzare un Prover disonesto, riprodurre la stessa simulazione tramite seed, o eseguire più iterazioni per stimare la probabilità che un Prover disonesto venga scoperto.</p>
 
-<div class="container">
-<h2>Simulazione del Sum Check Protocol</h2>
+    <label for="numVars">Numero di variabili (n)</label>
+    <input id="numVars" type="number" min="1" max="10" value="3" />
 
-<p>
-Una simulazione fedele del <strong>Sum Check Protocol</strong>.
-Il <strong>Prover</strong> conosce una funzione \(g(x_1,...,x_n)\) e dichiara una somma.
-Il <strong>Verificatore</strong> effettua una serie di sfide a ogni round usando valori casuali.
-Il grafico mostra i valori calcolati a ogni round.
-</p>
+    <div class="row">
+      <div>
+        <label for="claimedSum">Somma dichiarata (lascia vuoto per somma corretta)</label>
+        <input id="claimedSum" type="text" placeholder="e.g. 4 oppure vuoto" />
+      </div>
+      <div>
+        <label for="seed">Seed (opzionale, per riproducibilità)</label>
+        <input id="seed" type="text" placeholder="lascia vuoto per casuale" />
+      </div>
+    </div>
 
-<label for="numVars">Numero di variabili (n):</label>
-<input type="number" id="numVars" placeholder="e.g., 3" min="1" max="8" value="3">
+    <div class="options">
+      <label><input id="dishonest" type="checkbox"/> Prover disonesto (perturba la somma)</label>
+      <label><input id="runMultiple" type="checkbox"/> Esegui N simulazioni</label>
+      <input id="multiCount" type="number" min="1" max="200" value="20" style="width:120px" />
+    </div>
 
-<label for="claimedSum">Somma dichiarata (lascia vuoto per usare la somma corretta):</label>
-<input type="number" id="claimedSum" placeholder="e.g., 4">
+    <div class="controls">
+      <button id="startBtn">Avvia Protocollo</button>
+    </div>
 
-<button onclick="startProtocol()">Avvia Protocollo</button>
+    <div class="log" id="log" aria-live="polite"></div>
 
-<div class="log" id="log"></div>
+    <div style="margin-top:18px">
+      <canvas id="sumChart" height="160"></canvas>
+    </div>
 
-<div style="margin-top:20px;">
-    <canvas id="sumChart"></canvas>
-</div>
-</div>
+    <footer>Creato con miglioramenti — puoi chiedere altre modifiche (es. visualizzare passo per passo o esportare dati).</footer>
+  </div>
 
-<footer class="footer">
-    <p>Creato da <a href="https://salvatorecapolupo.github.io/about-me/" target="_blank">Salvatore Capolupo</a></p>
-</footer>
-    
 <script>
-let chart;
-
-// Generates a multivariate polynomial as an array of values
-function generateFunction(n){
-    let size = Math.pow(2,n);
-    let g = [];
-    for(let i=0;i<size;i++) {
-        // Generates random coefficients
-        g.push(Math.floor(Math.random()*5)); 
-    }
-    return g;
+// ---------- Utility: seeded RNG (LCG) ----------
+function makeLCG(seed){
+  // convert string seed to number
+  let s = 0;
+  for(let i=0;i<seed.length;i++){ s = (s * 31 + seed.charCodeAt(i)) >>> 0; }
+  if(s === 0) s = 123456789;
+  return function(){ s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-// Function to evaluate the polynomial at a specific point
-function evaluate(g, x) {
-    let sum = 0;
-    // Iterate over all 2^n possible combinations
-    for(let i=0; i<Math.pow(2, g.length); i++) {
-        // Convert the index to a binary string to get the variables
-        let binary = i.toString(2).padStart(g.length, '0');
-        let term = g[i];
-        for(let j=0; j<g.length; j++) {
-            // Replace each variable with the corresponding value in x
-            if (binary[j] === '1') {
-                term *= x[j];
-            } else {
-                term *= (1 - x[j]);
-            }
-        }
-        sum += term;
-    }
-    return sum;
+// ---------- Polynomial generation ----------
+function generateFunction(n, rng){
+  const size = 1 << n; // 2^n
+  const g = new Array(size);
+  for(let i=0;i<size;i++){
+    // random coefficients in [0, 5) with possible fractional part
+    const coeff = Math.floor(rng()*5) + rng();
+    g[i] = coeff;
+  }
+  return g;
 }
 
-// Main function that runs the protocol
-function startProtocol(){
-    const log = document.getElementById("log");
-    log.innerHTML = '';
-    const n = parseInt(document.getElementById("numVars").value);
-    
-    if(isNaN(n) || n < 1 || n > 8){
-        alert("Inserisci un numero di variabili tra 1 e 8.");
-        return;
-    }
-    
-    // Generate polynomial 'g' with n variables
-    let g = generateFunction(n);
-    
-    // Calcola la somma corretta
-    let correctSum = 0;
-    for(let i=0; i<Math.pow(2, n); i++) {
-        // The correct sum is the sum of the coefficients, not the sum of the evaluations of the polynomial
-        correctSum += g[i];
+// ---------- Core protocol (single run) ----------
+function runProtocol(n, g, claimedSum, rng){
+  const eps = 1e-6;
+  const logLines = [];
+  let prevVal = claimedSum;
+  let current_g = g.slice();
+  const roundData = [];
+
+  for(let i=0;i<n;i++){
+    const half = current_g.length / 2;
+    let p0 = 0, p1 = 0;
+    for(let j=0;j<half;j++){
+      p0 += current_g[j];
+      p1 += current_g[j + half];
     }
 
-    let claimed = parseInt(document.getElementById("claimedSum").value);
-    if(isNaN(claimed)) claimed = correctSum;
+    const sumP = p0 + p1;
+    const correct = Math.abs(sumP - prevVal) < eps;
 
-    log.innerHTML+=`<p>Il Prover dichiara una somma di ${claimed}. La somma reale è ${correctSum}.</p>`;
-    
-    let prevVal = claimed;
-    let roundData = [];
-    let current_g = g;
-    
-    for(let i = 0; i < n; i++) {
-        // Prover calculates P_i(x_i)
-        // P_i(0) is the sum of the polynomial when variable x_i is fixed to 0
-        let p0 = 0;
-        let p1 = 0;
-        for(let j = 0; j < Math.pow(2, n - i - 1); j++) {
-            p0 += current_g[j];
-            p1 += current_g[j + Math.pow(2, n - i - 1)];
-        }
-        
-        // Verifier checks if P_i(0) + P_i(1) is equal to P_{i-1}(r_{i-1})
-        // In the first round, the Verifier checks if P_0(0)+P_0(1) is equal to the claimed sum
-        let correct = Math.abs((p0 + p1) - prevVal) < 0.01;
-        
-        let r = Math.random(); // Verifier chooses a random value
-        
-        // Prover calculates the value of the polynomial at that random point: P_i(r) = P_i(0)*(1-r) + P_i(1)*r
-        let valAtR = p0 * (1 - r) + p1 * r;
-        
-        // Update the log and the chart
-        log.innerHTML+=`<p class="${correct?'ok':'fail'}">Round ${i+1}: P(0)+P(1)=${(p0+p1).toFixed(3)} vs. valore precedente ${prevVal.toFixed(3)} → ${correct?'✅ OK':'❌ FALLITO'}</p>`;
-        
-        roundData.push({round:i+1, r:r.toFixed(3), val:valAtR, correct});
-        
-        // The Prover generates a new polynomial for the next round
-        let next_g = [];
-        for(let j = 0; j < Math.pow(2, n - i - 1); j++) {
-            let val = current_g[j] * (1-r) + current_g[j + Math.pow(2, n - i - 1)] * r;
-            next_g.push(val);
-        }
-        current_g = next_g;
-        
-        // The new value for verification of the next round is P_i(r)
-        prevVal = valAtR;
-    }
-    
-    // Final check
-    if (Math.abs(current_g[0] - prevVal) < 0.01) {
-        log.innerHTML+=`<p class="ok"><strong>✅ Protocollo completato con successo!</strong></p>`;
-    } else {
-        log.innerHTML+=`<p class="fail"><strong>❌ Protocollo fallito all'ultimo controllo!</strong></p>`;
-    }
+    // Verifier picks random r in [0,1]
+    const r = rng();
+    const valAtR = p0 * (1 - r) + p1 * r;
 
-    renderChart(roundData, claimed);
-}
-
-// Renders the chart
-function renderChart(data, claimed){
-    if(chart) chart.destroy();
-    const ctx = document.getElementById('sumChart').getContext('2d');
-    chart = new Chart(ctx,{
-        type:'scatter',
-        data:{
-            datasets:[
-                {
-                    label:'Valori calcolati per round',
-                    data:data.map(d=>({x:d.round,y:d.val})),
-                    backgroundColor:data.map(d=>d.correct?'green':'red'),
-                    pointRadius:8
-                },
-                {
-                    label:'Somma dichiarata',
-                    data:[{x:0,y:claimed},{x:data.length+1,y:claimed}],
-                    type:'line',
-                    borderColor:'red',
-                    borderWidth:2,
-                    fill:false
-                }
-            ]
-        },
-        options:{
-            responsive:true,
-            scales:{
-                x:{title:{display:true,text:'Round'},min:1,max:data.length+1},
-                y:{title:{display:true,text:'Valore del Polinomio'},min:0}
-            },
-            plugins:{
-                tooltip:{
-                    callbacks:{
-                        label:function(context){
-                            let idx=context.dataIndex;
-                            let d=data[idx];
-                            return [`Round ${d.round}`, `P(r)=${d.val.toFixed(3)}`, d.correct?'✅ OK':'❌ FALLITO'];
-                        }
-                    }
-                }
-            }
-        }
+    logLines.push({
+      round: i+1,
+      p0, p1, sumP, prevVal, r, valAtR, correct
     });
+
+    // build next polynomial
+    const next_g = new Array(half);
+    for(let j=0;j<half;j++){
+      next_g[j] = current_g[j] * (1 - r) + current_g[j + half] * r;
+    }
+    current_g = next_g;
+    prevVal = valAtR;
+  }
+
+  // final check: current_g should have length 1
+  const finalOk = Math.abs(current_g[0] - prevVal) < 1e-6;
+  return {roundData: logLines, finalOk, finalValue: current_g[0]};
 }
+
+// ---------- Helpers for UI and Chart ----------
+let chart = null;
+function renderChart(roundData, claimed){
+  const ctx = document.getElementById('sumChart').getContext('2d');
+  if(chart) chart.destroy();
+
+  const points = roundData.map(d=>({x:d.round, y:d.valAtR, info:d}));
+  const claimedLine = [{x:0,y:claimed},{x:roundData.length+1,y:claimed}];
+
+  chart = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets:[
+        {
+          label: 'Valori P(r) per round',
+          data: points,
+          pointRadius:8,
+          pointBackgroundColor: points.map(p=> p.info.correct ? 'green' : 'red')
+        },
+        {
+          label: 'Somma dichiarata',
+          data: claimedLine,
+          type: 'line',
+          borderColor: 'rgba(220,53,69,0.9)',
+          borderWidth:2,
+          pointRadius:0,
+          fill:false
+        }
+      ]
+    },
+    options: {
+      responsive:true,
+      scales: {
+        x: {title:{display:true,text:'Round'}, min:0, max: roundData.length + 1, ticks:{stepSize:1}},
+        y: {title:{display:true,text:'Valore del polinomio'}, beginAtZero:true}
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: function(context){
+              // context.raw holds our point (x,y,info)
+              const raw = context.raw;
+              if(raw && raw.info){
+                const d = raw.info;
+                return [
+                  `Round ${d.round} — r=${d.r.toFixed(3)}`,
+                  `P(0)=${d.p0.toFixed(3)}  P(1)=${d.p1.toFixed(3)}`,
+                  `P(r)=${d.valAtR.toFixed(3)}  ${d.correct? '✅ OK' : '❌ FAIL'}`
+                ];
+              }
+              // fallback
+              return `(${context.parsed.x}, ${context.parsed.y})`;
+            }
+          }
+        },
+        legend: {display:true}
+      }
+    }
+  });
+}
+
+function appendLogElement(container, html){
+  container.insertAdjacentHTML('beforeend', html);
+  container.scrollTop = container.scrollHeight;
+}
+
+// ---------- Main UI wiring ----------
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  const log = document.getElementById('log');
+  log.innerHTML = '';
+
+  const n = parseInt(document.getElementById('numVars').value, 10);
+  if(isNaN(n) || n < 1 || n > 12){ alert('Inserisci un numero di variabili tra 1 e 12.'); return; }
+
+  const seedInput = document.getElementById('seed').value.trim();
+  const useSeed = seedInput.length > 0;
+  const rng = useSeed ? makeLCG(seedInput) : Math.random.bind(Math);
+
+  // generate g
+  const g = generateFunction(n, rng);
+  const correctSum = g.reduce((a,b)=>a+b, 0);
+
+  // claimed sum: if user provided a number use it, otherwise use correctSum, unless dishonest option checked
+  const claimedRaw = document.getElementById('claimedSum').value.trim();
+  let claimed = claimedRaw === '' ? correctSum : parseFloat(claimedRaw);
+  if(Number.isNaN(claimed)) claimed = correctSum;
+
+  if(document.getElementById('dishonest').checked){
+    // perturb claimed sum by a random relative amount up to ±30%
+    const delta = (rng()*0.6 - 0.3) * correctSum;
+    claimed = claimed + delta;
+  }
+
+  appendLogElement(log, `<p class="small">Il Prover dichiara: <strong>${claimed.toFixed(6)}</strong>. Somma reale: <strong>${correctSum.toFixed(6)}</strong>.</p>`);
+
+  // run multiple times if requested
+  const runMultiple = document.getElementById('runMultiple').checked;
+  const multiCount = parseInt(document.getElementById('multiCount').value, 10) || 1;
+
+  if(!runMultiple){
+    const result = runProtocol(n, g, claimed, rng);
+    result.roundData.forEach(d=>{
+      appendLogElement(log, `<p class="${d.correct? 'ok' : 'fail'}">Round ${d.round}: P(0)+P(1)=${(d.p0 + d.p1).toFixed(6)} vs prev=${d.prevVal.toFixed(6)} → ${d.correct? '✅ OK':'❌ FAIL'}</p>`);
+    });
+
+    appendLogElement(log, `<p class="${result.finalOk? 'ok':'fail'}"><strong>${result.finalOk? '✅ Protocollo completato con successo':'❌ Protocollo fallito all\'ultimo controllo'}</strong> (val finale: ${result.finalValue.toFixed(6)})</p>`);
+    renderChart(result.roundData, claimed);
+  } else {
+    // multiple runs to estimate detection probability for a dishonest prover
+    let detected = 0;
+    const trials = Math.min(multiCount, 200);
+
+    for(let t=0;t<trials;t++){
+      // for reproducibility with seed: make a fresh RNG per trial derived from seed
+      const trialRng = useSeed ? makeLCG(seedInput + ':' + t) : Math.random.bind(Math);
+      // regenerate g for each trial to sample different functions
+      const trialG = generateFunction(n, trialRng);
+      // prepare claimed (dishonest) for each trial
+      let trialClaimed = claimed;
+      if(document.getElementById('dishonest').checked){
+        const delta = (trialRng()*0.6 - 0.3) * trialG.reduce((a,b)=>a+b,0);
+        trialClaimed = trialClaimed + delta;
+      }
+      const res = runProtocol(n, trialG, trialClaimed, trialRng);
+      if(!res.finalOk) detected++;
+    }
+
+    appendLogElement(log, `<p class="small">Eseguiti ${trials} trial. Prover disonesto rilevato in <strong>${detected}</strong> trial (${((detected/trials)*100).toFixed(2)}%).</p>`);
+    // show last trial's chart for visual feedback
+    const lastTrialRng = useSeed ? makeLCG(seedInput + ':' + (trials-1)) : Math.random.bind(Math);
+    const lastG = generateFunction(n, lastTrialRng);
+    const lastClaimed = claimed;
+    const lastRes = runProtocol(n, lastG, lastClaimed, lastTrialRng);
+    renderChart(lastRes.roundData, lastClaimed);
+  }
+});
 </script>
 </body>
 </html>
